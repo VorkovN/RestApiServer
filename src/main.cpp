@@ -1,10 +1,9 @@
 #include "DiskFacade.h"
-#include <iostream>
 
 int main() {
 
-    DiskFacade diskFacade{};
-
+    yandex_disk::DiskFacade diskFacade{};
+    diskFacade.start();
 
     return 0;
 }

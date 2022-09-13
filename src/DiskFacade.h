@@ -3,13 +3,16 @@
 #include "DbController.h"
 #include "HttpTransport.h"
 
-class DiskFacade {
+namespace yandex_disk {
 
-public:
-    void start();
+    class DiskFacade {
 
-private:
-    DbController _dbController{};
-    HttpTransport _httpTransport{};
-};
+    public:
+        void start();
 
+    private:
+        DbController _dbController{};
+        HttpTransport _httpTransport{};
+    };
+
+}
