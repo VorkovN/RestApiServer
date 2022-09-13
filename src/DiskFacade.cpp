@@ -2,16 +2,16 @@
 
 namespace yandex_disk {
 
-
     void DiskFacade::start() {
 
         if (!_dbController.initialize())
             return;
 
+        _httpTransport.initialize(this);
         _httpTransport.start();
     }
 
-    bool DiskFacade::postNode(File &file) {
+    bool DiskFacade::postNode(const File& file) {
         return _dbController.postNode(file);
     }
 
@@ -20,7 +20,6 @@ namespace yandex_disk {
     }
 
     File DiskFacade::getNode() {
-        ;
         return _dbController.getNode();
     }
 

@@ -13,9 +13,12 @@ namespace yandex_disk {
 
         bool initialize();
 
-        bool postNode(File& file);
+        bool postNode(const File& file);
         bool deleteNode();
         File getNode();
+
+    private:
+        std::string generateUpsertRequest(const File& file);
 
     private:
         std::unique_ptr<pqxx::connection> _dbConnection;

@@ -4,18 +4,19 @@
 #include <cpprest/json.h>
 
 #include "File.h"
+#include "IDiskFacade.h"
+
+using namespace web::http;
 
 namespace yandex_disk {
-
-
-    using namespace web::http;
 
     class HttpTransport {
 
         using HttpListener = experimental::listener::http_listener;
     public:
-        HttpTransport();
 
+        HttpTransport();
+        void initialize(IDiskFacade* diskFacade);
         void start();
 
     private:
@@ -26,6 +27,8 @@ namespace yandex_disk {
         void deleteHandler(http_request&& message);
 
     private:
+        IDiskFacade* _diskFacade;
+
         const std::string BASE_URL = "http://localhost:8080/";
         const std::string PREFIX_IMPORTS = "imports";
         const std::string PREFIX_DELETE = "delete";

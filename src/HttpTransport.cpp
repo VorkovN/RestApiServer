@@ -13,7 +13,11 @@ namespace yandex_disk {
         _httpListenerImports.support(methods::POST,[this](auto &&message) { postHandler(std::move(message)); });
         _httpListenerDelete.support(methods::DEL,[this](auto &&message) { deleteHandler(std::move(message)); });
         _httpListenerNodes.support(methods::GET, [this](auto &&message) { getHandler(std::move(message)); });
+    }
 
+    void HttpTransport::initialize(IDiskFacade* diskFacade)
+    {
+        _diskFacade = diskFacade;
     }
 
     void HttpTransport::start() {
@@ -29,8 +33,12 @@ namespace yandex_disk {
 
         std::cout << message.to_string() << std::endl;
 
+
+
 //        auto j = web::json::value::parse("true");
-//        message.reply(200, j);
+
+        _diskFacade->getNode();
+        message.reply(200);
     }
 
     void HttpTransport::postHandler(http_request&& message) {
@@ -121,6 +129,11 @@ namespace yandex_disk {
         }
         outputFile.updateDate = updateDateValue.as_string();
 
+        if (!_diskFacade->postNode(outputFile)){
+            message.reply(400, "Validation Failed");
+            return;
+        }
+
         message.reply(200);
     }
 
@@ -128,6 +141,7 @@ namespace yandex_disk {
 
         std::cout << message.to_string() << std::endl;
 
+        _diskFacade->deleteNode();
         message.reply(200);
     }
 

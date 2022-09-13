@@ -2,7 +2,8 @@
 
 #include "File.h"
 #include "IDiskFacade.h"
-
+#include "DbController.h"
+#include "HttpTransport.h"
 
 namespace yandex_disk {
 
@@ -10,7 +11,7 @@ namespace yandex_disk {
 
     public:
         void start() override;
-        bool postNode(File& file) override;
+        bool postNode(const File& file) override;
         bool deleteNode() override;
         File getNode() override;
 
