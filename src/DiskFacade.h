@@ -13,7 +13,7 @@ namespace yandex_disk {
         void start() override;
         bool postNode(const File& file) override;
         bool deleteNode(const std::string& idString) override;
-        File getNode() override;
+        std::optional<File> getNode(const std::string& idString) override;
 
     private:
         DbController _dbController{};

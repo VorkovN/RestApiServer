@@ -1,8 +1,11 @@
 #pragma once
 
+#include <optional>
+
 #include <pqxx/pqxx>
 
 #include "File.h"
+
 
 namespace yandex_disk {
 
@@ -15,11 +18,15 @@ namespace yandex_disk {
 
         bool postNode(const File& file);
         bool deleteNode(const std::string& idString);
-        File getNode();
+        std::optional<File> getNode(const std::string& idString);
 
     private:
         std::string generateUpsertRequest(const File& file);
         std::string generateDeleteRequest(const std::string& idString);
+        std::string generateSelectRequest(const std::string& idString);
+        std::string generateSelectChildrenRequest(const std::string& idString);
+        bool checkChildNodes(const std::string& idString, File &file, pqxx::nontransaction& nontransaction);
+        void fillFields(File &file, pqxx::result::reference& dbElement);
         void checkDb();
 
     private:

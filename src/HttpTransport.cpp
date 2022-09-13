@@ -1,6 +1,7 @@
 #include "HttpTransport.h"
 
 #include "File.h"
+#include "JsonProtocolConverter.h"
 
 namespace yandex_disk {
 
@@ -31,105 +32,32 @@ namespace yandex_disk {
 
     void HttpTransport::getHandler(http_request&& message) {
 
-        std::cout << message.to_string() << std::endl;
+        std::string idString = message.relative_uri().to_string().substr(1);
+
+        if (idString.find('/') != std::string::npos){
+            message.reply(400, "Validation Failed");
+            return;
+        }
+
+        auto fileOpt = _diskFacade->getNode(idString);
+        if (!fileOpt.has_value())
+            message.reply(404, "Item not found");
+
+        auto jsonFile = JsonProtocolConverter::convertGetRequest(fileOpt.value());
 
 
-
-//        auto j = web::json::value::parse("true");
-
-        _diskFacade->getNode();
-        message.reply(200);
+        message.reply(200, jsonFile);
     }
 
     void HttpTransport::postHandler(http_request&& message) {
 
-        File outputFile{};
-        const auto& jsonFile = message.extract_json().get();
+        const web::json::value& jsonFile = message.extract_json().get();
 
-        std::cout << message.to_string() << std::endl;
         std::cout << jsonFile << std::endl;
 
+        auto fileOpt = JsonProtocolConverter::convertUpdatingRequest(jsonFile);
 
-        if (!jsonFile.is_object()){
-            std::cout << "jsonFile isn't object" << std::endl;
-            return;
-        }
-
-        const auto& itemsValue = jsonFile.at("items");
-        if (!itemsValue.is_array()){
-            std::cout << "itemsValue isn't array" << std::endl;
-            return;
-        }
-
-        for (const auto& item: itemsValue.as_array()) {
-            if (!item.is_object()){
-                std::cout << "itemsObjectsElement isn't object" << std::endl;
-                return;
-            }
-
-
-            const auto& idValue = item.at("id");
-            if (!idValue.is_string()){
-                std::cout << "idValue isn't string" << std::endl;
-                return;
-            }
-            outputFile.id = idValue.as_string();
-
-
-            const auto& parentIdValue = item.at("parentId");
-            if (!parentIdValue.is_string() && !parentIdValue.is_null()){
-                std::cout << "parentIdValue isn't string" << std::endl;
-                return;
-            }
-
-            if (!parentIdValue.is_null())
-                outputFile.parentId = parentIdValue.as_string();
-
-
-            const auto& typeValue = item.at("type");
-            if (!typeValue.is_string()){
-                std::cout << "typeValue isn't string" << std::endl;
-                return;
-            }
-
-            if (typeValue.as_string() != "FOLDER" && typeValue.as_string() != "FILE"){
-                std::cout << "incorrect typeValue" << std::endl;
-                return;
-            }
-
-            // У типа FOLDER остальные поля отсутствуют, значит нужно пропустить их
-            if (typeValue.as_string() == "FOLDER"){
-                outputFile.fileType = FileType::FOLDER;
-                continue;
-            } else {
-                outputFile.fileType = FileType::FILE;
-            }
-
-
-            const auto& urlValue = item.at("url");
-            if (!urlValue.is_string()){
-                std::cout << "urlValue isn't string" << std::endl;
-                return;
-            }
-            outputFile.url = urlValue.as_string();
-
-
-            const auto& sizeValue = item.at("size");
-            if (!sizeValue.is_integer()){
-                std::cout << "sizeValue isn't int" << std::endl;
-                return;
-            }
-            outputFile.size = sizeValue.as_integer();
-        }
-
-        const auto& updateDateValue = jsonFile.at("updateDate");
-        if (!updateDateValue.is_string()){
-            std::cout << "updateDateValue isn't string" << std::endl;
-            return;
-        }
-        outputFile.updateDate = updateDateValue.as_string();
-
-        if (!_diskFacade->postNode(outputFile)){
+        if (!fileOpt.has_value() || !_diskFacade->postNode(fileOpt.value())){
             message.reply(400, "Validation Failed");
             return;
         }
@@ -139,7 +67,6 @@ namespace yandex_disk {
 
     void HttpTransport::deleteHandler(http_request&& message) {
 
-        std::cout << message.to_string() << std::endl;
         std::string idString = message.relative_uri().to_string().substr(1);
 
         if (idString.find('/') != std::string::npos){

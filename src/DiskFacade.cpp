@@ -19,8 +19,8 @@ namespace yandex_disk {
         return _dbController.deleteNode(idString);
     }
 
-    File DiskFacade::getNode() {
-        return _dbController.getNode();
+    std::optional<File> DiskFacade::getNode(const std::string& idString) {
+        return _dbController.getNode(idString);
     }
 
 }

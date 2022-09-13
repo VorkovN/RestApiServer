@@ -71,8 +71,35 @@ namespace yandex_disk {
         return true;
     }
 
-    File DbController::getNode() {
-        return File();
+    std::optional<File> DbController::getNode(const std::string& idString) {
+
+        File file;
+        try {
+            pqxx::nontransaction nontransaction(*_dbConnection);
+            std::string requestString = generateSelectRequest(idString);
+            // Проверяем самый корневой айди на существование и достаем его из БД
+            auto result  = nontransaction.exec(requestString);
+            nontransaction.commit();
+
+            auto dbElement = result.front();
+            fillFields(file, dbElement);
+
+            if (file.fileType == FileType::FOLDER)
+                if (!checkChildNodes(idString, file, nontransaction))
+                    return {};
+
+            std::cout << "SELECT request:" << std::endl;
+            std::cout << requestString << std::endl;
+        }
+        catch (const std::exception& e)
+        {
+            std::cout << "Select DB target element was failed" << std::endl;
+            std::cout << e.what() << std::endl;
+            return {};
+        }
+
+        checkDb();
+        return file;
     }
 
     std::string DbController::generateUpsertRequest(const File &file) {
@@ -99,8 +126,59 @@ namespace yandex_disk {
         return requestString;
     }
 
-    std::string DbController::generateDeleteRequest(const std::string &idString) {
+    std::string DbController::generateDeleteRequest(const std::string& idString) {
         return "DELETE from files_storage where id = '" + idString + "';";
+    }
+
+    std::string DbController::generateSelectRequest(const std::string& idString) {
+        return "SELECT  * from files_storage where id = '" + idString + "';"; //todo нужна ли *
+    }
+
+    std::string DbController::generateSelectChildrenRequest(const std::string& parentIdString) {
+        return "SELECT * from files_storage where parent_id = '" + parentIdString + "';";
+    }
+
+    // Рекурсивный поиск в БД всех дочерних элементов
+    bool DbController::checkChildNodes(const std::string& parentIdString, File& file, pqxx::nontransaction& nontransaction) {
+
+        //запрос всех элементов с нужным родительским айди
+
+        pqxx::result result;
+        try {
+            std::string requestString = generateSelectChildrenRequest(parentIdString);
+            result = nontransaction.exec(requestString);
+            nontransaction.commit();
+        }
+        catch (const std::exception& e)
+        {
+            std::cout << "Select DB child element was failed" << std::endl;
+            std::cout << e.what() << std::endl;
+            return false;
+        }
+
+        //Во время поиска дочерних элементов рекурсивно заполним сайз всех папок(хранить сайз папок в БД смысла не было)
+        for (pqxx::result::const_iterator dbElement = result.begin(); dbElement != result.end(); ++dbElement) {
+            File childNodeFile{};
+
+            fillFields(childNodeFile, dbElement);
+
+            if (file.fileType == FileType::FOLDER)
+                checkChildNodes(childNodeFile.id, childNodeFile, nontransaction);
+
+            file.size += childNodeFile.size;
+            childNodeFile.childFiles.push_back(childNodeFile);
+        }
+
+        return true;
+    }
+
+    void DbController::fillFields(File &file, pqxx::result::reference& dbElement) {
+        file.id = dbElement.at("id").as<std::string>();
+        file.parentId = dbElement.at("parent_id").as<std::string>();
+        file.url = dbElement.at("url").as<std::string>();
+        file.size = dbElement.at("size").as<int>();
+        file.updateDate = dbElement.at("date").as<std::string>();
+        file.fileType = file.size != 0? FileType::FILE: FileType::FOLDER;
     }
 
     //todo delete
@@ -112,6 +190,7 @@ namespace yandex_disk {
         }
         nontransaction.commit();
     }
+
 
 
 }

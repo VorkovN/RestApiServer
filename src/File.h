@@ -1,5 +1,6 @@
 #pragma once
 
+#include <list>
 #include <string>
 
 namespace yandex_disk {
@@ -15,6 +16,7 @@ namespace yandex_disk {
         std::string parentId;
         int64_t size;
         std::string updateDate;
+        std::list<File> childFiles;
     };
 
 }
