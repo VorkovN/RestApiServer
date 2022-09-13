@@ -3,6 +3,8 @@
 #include <cpprest/http_listener.h>
 #include <cpprest/json.h>
 
+#include "File.h"
+
 namespace yandex_disk {
 
 

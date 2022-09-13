@@ -128,7 +128,7 @@ namespace yandex_disk {
 
         std::cout << message.to_string() << std::endl;
 
-//        message.reply(200);
+        message.reply(200);
     }
 
 }

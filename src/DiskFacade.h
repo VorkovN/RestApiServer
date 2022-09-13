@@ -1,14 +1,18 @@
 #pragma once
 
-#include "DbController.h"
-#include "HttpTransport.h"
+#include "File.h"
+#include "IDiskFacade.h"
+
 
 namespace yandex_disk {
 
-    class DiskFacade {
+    class DiskFacade: public IDiskFacade {
 
     public:
-        void start();
+        void start() override;
+        bool postNode(File& file) override;
+        bool deleteNode() override;
+        File getNode() override;
 
     private:
         DbController _dbController{};

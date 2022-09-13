@@ -8,7 +8,7 @@ file(GLOB sources src/*.cpp)
 
 find_package(cpprestsdk REQUIRED)
 
-add_executable(${PROJECT_NAME} ${sources} ${headers})
+add_executable(${PROJECT_NAME} ${sources} ${headers} src/IDiskFacade.h)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE cpprestsdk::cpprest)
+target_link_libraries(${PROJECT_NAME} PRIVATE cpprestsdk::cpprest -lpqxx -lpq)
 
