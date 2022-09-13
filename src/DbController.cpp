@@ -39,16 +39,6 @@ namespace yandex_disk {
             work.commit();
             std::cout << "UPSERT request:" << std::endl;
             std::cout << requestString << std::endl;
-
-            /////check DB
-            pqxx::nontransaction nontransaction(*_dbConnection);
-            auto result  = nontransaction.exec("SELECT * FROM files_storage");
-            for (pqxx::result::const_iterator c = result.begin(); c != result.end(); ++c) {
-                std::cout << "id = " << c[0].as<std::string>() << std::endl;
-            }
-            nontransaction.commit();
-            /////
-
         }
         catch (const std::exception& e)
         {
@@ -57,11 +47,27 @@ namespace yandex_disk {
             return false;
         }
 
+        checkDb();
         return true;
     }
 
-    bool DbController::deleteNode() {
+    bool DbController::deleteNode(const std::string& idString) {
+        try {
+            pqxx::work work(*_dbConnection);
+            std::string requestString = generateDeleteRequest(idString);
+            work.exec(requestString);
+            work.commit();
+            std::cout << "DELETE request:" << std::endl;
+            std::cout << requestString << std::endl;
+        }
+        catch (const std::exception& e)
+        {
+            std::cout << "Deleting DB element was failed" << std::endl;
+            std::cout << e.what() << std::endl;
+            return false;
+        }
 
+        checkDb();
         return true;
     }
 
@@ -93,6 +99,19 @@ namespace yandex_disk {
         return requestString;
     }
 
+    std::string DbController::generateDeleteRequest(const std::string &idString) {
+        return "DELETE from files_storage where id = '" + idString + "';";
+    }
+
+    //todo delete
+    void DbController::checkDb() {
+        pqxx::nontransaction nontransaction(*_dbConnection);
+        auto result  = nontransaction.exec("SELECT * FROM files_storage");
+        for (pqxx::result::const_iterator c = result.begin(); c != result.end(); ++c) {
+            std::cout << "id = " << c[0].as<std::string>() << std::endl;
+        }
+        nontransaction.commit();
+    }
 
 
 }

@@ -140,8 +140,16 @@ namespace yandex_disk {
     void HttpTransport::deleteHandler(http_request&& message) {
 
         std::cout << message.to_string() << std::endl;
+        std::string idString = message.relative_uri().to_string().substr(1);
 
-        _diskFacade->deleteNode();
+        if (idString.find('/') != std::string::npos){
+            message.reply(400, "Validation Failed");
+            return;
+        }
+
+        if (!_diskFacade->deleteNode(idString))
+            message.reply(404, "Item not found");
+
         message.reply(200);
     }
 
