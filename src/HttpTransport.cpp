@@ -55,9 +55,18 @@ namespace yandex_disk {
 
         std::cout << jsonFile << std::endl;
 
-        auto fileOpt = JsonProtocolConverter::convertUpdatingRequest(jsonFile);
+        auto files = JsonProtocolConverter::convertUpdatingRequest(jsonFile);
 
-        if (!fileOpt.has_value() || !_diskFacade->postNode(fileOpt.value())){
+        if (files.empty()){
+            message.reply(400, "Validation Failed");
+            return;
+        }
+
+        bool successfulResult = true;
+        for (const auto& file: files)
+            successfulResult &= _diskFacade->postNode(file);
+
+        if (!successfulResult){
             message.reply(400, "Validation Failed");
             return;
         }

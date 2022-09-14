@@ -5,18 +5,17 @@
 
 namespace yandex_disk {
 
-    enum FileType : bool {
-        FILE, FOLDER
-    };
-
     struct File {
-        FileType fileType;
-        std::string url;
         std::string id;
+        std::string url;
+        std::string type;
         std::string parentId;
+        std::string date;
         int64_t size;
-        std::string updateDate;
-        std::list<File> childFiles;
+        std::list<File> children;
+
+        inline static const std::string FILE = "FILE";
+        inline static const std::string FOLDER = "FOLDER" ;
     };
 
 }

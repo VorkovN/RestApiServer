@@ -2,29 +2,32 @@
 
 namespace yandex_disk {
 
-    std::optional<File> JsonProtocolConverter::convertUpdatingRequest(const web::json::value& jsonFile) {
+    std::vector<File> JsonProtocolConverter::convertUpdatingRequest(const web::json::value& jsonFile) {
 
-        File file{};
+        std::vector<File> files{};
 
         if (!jsonFile.is_object()) {
             std::cout << "jsonFile isn't object" << std::endl;
             return {};
         }
 
-        const auto &itemsValue = jsonFile.at("items");
+        const auto &itemsValue = jsonFile.at(InputJsonFields::ITEMS);
         if (!itemsValue.is_array()) {
             std::cout << "itemsValue isn't array" << std::endl;
             return {};
         }
 
         for (const auto &item: itemsValue.as_array()) {
+
+            File file{};
+
             if (!item.is_object()) {
                 std::cout << "itemsObjectsElement isn't object" << std::endl;
                 return {};
             }
 
 
-            const auto &idValue = item.at("id");
+            const auto &idValue = item.at(InputJsonFields::ID);
             if (!idValue.is_string()) {
                 std::cout << "idValue isn't string" << std::endl;
                 return {};
@@ -32,7 +35,7 @@ namespace yandex_disk {
             file.id = idValue.as_string();
 
 
-            const auto &parentIdValue = item.at("parentId");
+            const auto &parentIdValue = item.at(InputJsonFields::PARENT_ID);
             if (!parentIdValue.is_string() && !parentIdValue.is_null()) {
                 std::cout << "parentIdValue isn't string" << std::endl;
                 return {};
@@ -42,27 +45,27 @@ namespace yandex_disk {
                 file.parentId = parentIdValue.as_string();
 
 
-            const auto &typeValue = item.at("type");
+            const auto &typeValue = item.at(InputJsonFields::TYPE);
             if (!typeValue.is_string()) {
                 std::cout << "typeValue isn't string" << std::endl;
                 return {};
             }
 
-            if (typeValue.as_string() != "FOLDER" && typeValue.as_string() != "FILE") {
+            if (typeValue.as_string() != File::FOLDER && typeValue.as_string() != File::FILE) {
                 std::cout << "incorrect typeValue" << std::endl;
                 return {};
             }
 
             // У типа FOLDER остальные поля отсутствуют, значит нужно пропустить их
-            if (typeValue.as_string() == "FOLDER") {
-                file.fileType = FileType::FOLDER;
+            file.type = typeValue.as_string();
+            if (file.type == File::FOLDER)
+            {
+                files.push_back(file);
                 continue;
-            } else {
-                file.fileType = FileType::FILE;
             }
 
 
-            const auto &urlValue = item.at("url");
+            const auto &urlValue = item.at(InputJsonFields::URL);
             if (!urlValue.is_string()) {
                 std::cout << "urlValue isn't string" << std::endl;
                 return {};
@@ -70,38 +73,42 @@ namespace yandex_disk {
             file.url = urlValue.as_string();
 
 
-            const auto &sizeValue = item.at("size");
+            const auto &sizeValue = item.at(InputJsonFields::SIZE);
             if (!sizeValue.is_integer()) {
                 std::cout << "sizeValue isn't int" << std::endl;
                 return {};
             }
             file.size = sizeValue.as_integer();
+
+            files.push_back(file);
         }
 
-        const auto &updateDateValue = jsonFile.at("updateDate");
+        const auto &updateDateValue = jsonFile.at(InputJsonFields::UPDATE_DATE);
         if (!updateDateValue.is_string()) {
             std::cout << "updateDateValue isn't string" << std::endl;
             return {};
         }
-        file.updateDate = updateDateValue.as_string();
 
-        return file;
+        for (auto& file: files)
+            file.date = updateDateValue.as_string();
+
+        return files;
     }
 
     web::json::value JsonProtocolConverter::convertGetRequest(const File& file) {
         web::json::value json;
 
-        json["id"] = web::json::value::string(file.id);
-        json["url"] = !file.url.empty()? web::json::value::string(file.url): web::json::value::null();
-        json["type"] = file.fileType == FileType::FILE? web::json::value::string("FILE") : web::json::value::string("FOLDER");
-        json["parentId"] = !file.parentId.empty()? web::json::value::string(file.parentId): web::json::value::null();
-        json["date"] = web::json::value::string(file.updateDate);
-        json["size"] = web::json::value::number(file.size);
+        json[OutputJsonFields::ID] = web::json::value::string(file.id);
+        json[OutputJsonFields::URL] = !file.url.empty()? web::json::value::string(file.url): web::json::value::null();
+        json[OutputJsonFields::TYPE] = web::json::value::string(file.type);
+        json[OutputJsonFields::PARENT_ID] = !file.parentId.empty()? web::json::value::string(file.parentId): web::json::value::null();
+        json[OutputJsonFields::DATE] = web::json::value::string(file.date);
+        json[OutputJsonFields::SIZE] = web::json::value::number(file.size);
 
         size_t counter = 0;
-        for (const auto& childFile: file.childFiles)
+        for (const auto& childFile: file.children)
         {
-            json["children"][counter++] = convertGetRequest(childFile);
+            json[OutputJsonFields::CHILDREN][counter++] = convertGetRequest(childFile);
         }
 
         return json;

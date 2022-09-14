@@ -79,14 +79,15 @@ namespace yandex_disk {
             std::string requestString = generateSelectRequest(idString);
             // Проверяем самый корневой айди на существование и достаем его из БД
             auto result  = nontransaction.exec(requestString);
-            nontransaction.commit();
 
             auto dbElement = result.front();
             fillFields(file, dbElement);
 
-            if (file.fileType == FileType::FOLDER)
+            if (file.type == File::FOLDER)
                 if (!checkChildNodes(idString, file, nontransaction))
                     return {};
+
+            nontransaction.commit();
 
             std::cout << "SELECT request:" << std::endl;
             std::cout << requestString << std::endl;
@@ -105,49 +106,46 @@ namespace yandex_disk {
     std::string DbController::generateUpsertRequest(const File &file) {
 
         std::string requestString;
-        if (file.fileType == FileType::FILE)
+        if (file.type == File::FILE)
             requestString = std::string(
-                    "INSERT INTO files_storage (id, parent_id, url, size, date) "
-                    "VALUES ('" + file.id + "', '" + file.parentId + "', '" + file.url + "', " + std::to_string(file.size) + ", '" + file.updateDate +"') "
-                    "ON CONFLICT (id) DO UPDATE SET "
-                    "parent_id = excluded.parent_id, "
-                    "url = excluded.url, "
-                    "size = excluded.size, "
-                    "date = excluded.date;");
+                    "INSERT INTO " + TABLE_NAME + " (" + DbFields::ID + ", " + DbFields::PARENT_ID + ", " + DbFields::URL + ", " + DbFields::SIZE + ", " + DbFields::DATE + ") "
+                    "VALUES ('" + file.id + "', '" + file.parentId + "', '" + file.url + "', " + std::to_string(file.size) + ", '" + file.date + "') "
+                    "ON CONFLICT (" + DbFields::ID + ") DO UPDATE SET "
+                    +DbFields::PARENT_ID + " = excluded." + DbFields::PARENT_ID + ", "
+                    +DbFields::URL + " = excluded." + DbFields::URL + ", "
+                    +DbFields::SIZE + " = excluded." + DbFields::SIZE + ", "
+                    +DbFields::DATE + " = excluded." + DbFields::DATE + ";");
         else
             requestString = std::string(
-                    "INSERT INTO files_storage (id, parent_id, size, date) "
-                    "VALUES ('" + file.id + "', '" + file.parentId + "', 0, '" + file.updateDate +"') "
-                    "ON CONFLICT (id) DO UPDATE SET "
-                    "parent_id = excluded.parent_id, "
-                     "size = excluded.size, "
-                    "date = excluded.date;");
+                    "INSERT INTO " + TABLE_NAME + " (" + DbFields::ID + ", " + DbFields::PARENT_ID + ", " + DbFields::SIZE + ", " + DbFields::DATE + ") "
+                    "VALUES ('" + file.id + "', '" + file.parentId + "', 0, '" + file.date + "') "
+                    "ON CONFLICT (" + DbFields::ID + ") DO UPDATE SET "
+                    +DbFields::PARENT_ID + " = excluded." + DbFields::PARENT_ID + ", "
+                    +DbFields::SIZE + " = excluded." + DbFields::SIZE + ", "
+                    +DbFields::DATE + " = excluded." + DbFields::DATE + ";");
 
         return requestString;
     }
 
     std::string DbController::generateDeleteRequest(const std::string& idString) {
-        return "DELETE from files_storage where id = '" + idString + "';";
+        return "DELETE from " + TABLE_NAME + " where " + DbFields::ID + " = '" + idString + "';";
     }
 
     std::string DbController::generateSelectRequest(const std::string& idString) {
-        return "SELECT  * from files_storage where id = '" + idString + "';"; //todo нужна ли *
+        return "SELECT * from " + TABLE_NAME + " where " + DbFields::ID + " = '" + idString + "';";
     }
 
     std::string DbController::generateSelectChildrenRequest(const std::string& parentIdString) {
-        return "SELECT * from files_storage where parent_id = '" + parentIdString + "';";
+        return "SELECT * from " + TABLE_NAME + " where " + DbFields::PARENT_ID + " = '" + parentIdString + "';";
     }
 
     // Рекурсивный поиск в БД всех дочерних элементов
     bool DbController::checkChildNodes(const std::string& parentIdString, File& file, pqxx::nontransaction& nontransaction) {
 
-        //запрос всех элементов с нужным родительским айди
-
         pqxx::result result;
         try {
             std::string requestString = generateSelectChildrenRequest(parentIdString);
             result = nontransaction.exec(requestString);
-            nontransaction.commit();
         }
         catch (const std::exception& e)
         {
@@ -156,37 +154,40 @@ namespace yandex_disk {
             return false;
         }
 
-        //Во время поиска дочерних элементов рекурсивно заполним сайз всех папок(хранить сайз папок в БД смысла не было)
+        //Во время поиска дочерних элементов рекурсивно заполним сайз всех папок(хранить сайз папок в БД смысла не нет: обновлять слишком долго)
         for (pqxx::result::const_iterator dbElement = result.begin(); dbElement != result.end(); ++dbElement) {
             File childNodeFile{};
 
             fillFields(childNodeFile, dbElement);
 
-            if (file.fileType == FileType::FOLDER)
+            if (childNodeFile.type == File::FOLDER)
                 checkChildNodes(childNodeFile.id, childNodeFile, nontransaction);
 
             file.size += childNodeFile.size;
-            childNodeFile.childFiles.push_back(childNodeFile);
+            file.children.push_back(childNodeFile);
         }
 
         return true;
     }
 
     void DbController::fillFields(File &file, pqxx::result::reference& dbElement) {
-        file.id = dbElement.at("id").as<std::string>();
-        file.parentId = dbElement.at("parent_id").as<std::string>();
-        file.url = dbElement.at("url").as<std::string>();
-        file.size = dbElement.at("size").as<int>();
-        file.updateDate = dbElement.at("date").as<std::string>();
-        file.fileType = file.size != 0? FileType::FILE: FileType::FOLDER;
+        file.id = dbElement.at(DbFields::ID).as<std::string>();
+        file.parentId = dbElement.at(DbFields::PARENT_ID).as<std::string>();
+        file.size = dbElement.at(DbFields::SIZE).as<int>();
+        file.date = dbElement.at(DbFields::DATE).as<std::string>();
+
+        if (file.size != 0)
+            file.url = dbElement.at(DbFields::URL).as<std::string>();
+        //Нет смысла держать тип файла в БД, когда его можно динамически генерировать по полю size
+        file.type = file.size != 0 ? File::FILE : File::FOLDER;
     }
 
     //todo delete
     void DbController::checkDb() {
         pqxx::nontransaction nontransaction(*_dbConnection);
-        auto result  = nontransaction.exec("SELECT * FROM files_storage");
+        auto result  = nontransaction.exec("SELECT * FROM " + TABLE_NAME);
         for (pqxx::result::const_iterator c = result.begin(); c != result.end(); ++c) {
-            std::cout << "id = " << c[0].as<std::string>() << std::endl;
+            std::cout << DbFields::ID + " = " << c[0].as<std::string>() << std::endl;
         }
         nontransaction.commit();
     }
