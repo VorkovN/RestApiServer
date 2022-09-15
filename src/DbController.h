@@ -17,12 +17,13 @@ namespace yandex_disk {
         bool initialize();
 
         bool postNode(const File& file);
-        bool deleteNode(const std::string& idString);
+        bool deleteNode(const std::string& idString, uint64_t newDate);
         std::optional<File> getNode(const std::string& idString);
 
     private:
         std::string generateUpsertRequest(const File& file);
         std::string generateDeleteRequest(const std::string& idString);
+        std::string generateUpdateParentRequest(const std::string& idString, uint64_t newDate);
         std::string generateSelectRequest(const std::string& idString);
         std::string generateSelectChildrenRequest(const std::string& idString);
         bool checkChildNodes(const std::string& idString, File &file, pqxx::nontransaction& nontransaction);

@@ -51,12 +51,27 @@ namespace yandex_disk {
         return true;
     }
 
-    bool DbController::deleteNode(const std::string& idString) {
+    bool DbController::deleteNode(const std::string& idString, uint64_t newDate) {
         try {
+
+            pqxx::nontransaction nontransaction(*_dbConnection);
+            std::string requestString = generateSelectRequest(idString);
+            auto result  = nontransaction.exec(requestString);
+            nontransaction.commit();
+            if (result.empty())
+                return false;
+            auto updatingId = result.front().at(DbFields::PARENT_ID).as<std::string>();
+
             pqxx::work work(*_dbConnection);
-            std::string requestString = generateDeleteRequest(idString);
+
+            requestString = generateUpdateParentRequest(updatingId, newDate);
             work.exec(requestString);
+
+            requestString = generateDeleteRequest(idString);
+            work.exec(requestString);
+
             work.commit();
+
             std::cout << "DELETE request:" << std::endl;
             std::cout << requestString << std::endl;
         }
@@ -128,7 +143,24 @@ namespace yandex_disk {
     }
 
     std::string DbController::generateDeleteRequest(const std::string& idString) {
-        return "DELETE from " + TABLE_NAME + " where " + DbFields::ID + " = '" + idString + "';";
+
+        std::string requestString = "WITH RECURSIVE files AS ("
+        " SELECT " + DbFields::ID + ", " + DbFields::PARENT_ID+
+        " FROM " + TABLE_NAME+
+        " WHERE " + DbFields::ID + " = '" + idString + "'"
+        " UNION "
+        " SELECT " + TABLE_NAME + "." + DbFields::ID + ", " + TABLE_NAME + "." + DbFields::PARENT_ID+
+        " FROM " + TABLE_NAME+
+        "  JOIN files"
+        "   ON " + TABLE_NAME + "." + DbFields::PARENT_ID + " = files." + DbFields::ID+
+        ")"
+        "DELETE FROM " + TABLE_NAME + " WHERE " + DbFields::ID + " IN (SELECT " + DbFields::ID + " from files);";
+
+        return requestString;
+    }
+
+    std::string DbController::generateUpdateParentRequest(const std::string& idString, uint64_t newDate) {
+        return "UPDATE " + TABLE_NAME + " set " + DbFields::DATE + " = " + std::to_string(newDate) + " where " + DbFields::ID + " = '" + idString + "';";
     }
 
     std::string DbController::generateSelectRequest(const std::string& idString) {
@@ -166,7 +198,8 @@ namespace yandex_disk {
 
             file.size += childNodeFile.size;
 
-            if (childNodeFile.size)
+            if (childNodeFile.date > file.date)
+                file.date = childNodeFile.date;
 
             file.children.push_back(childNodeFile);
         }

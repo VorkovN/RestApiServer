@@ -12,7 +12,7 @@ namespace yandex_disk {
     public:
         void start() override;
         bool postNode(const File& file) override;
-        bool deleteNode(const std::string& idString) override;
+        bool deleteNode(const std::string& idString, uint64_t newDate) override;
         std::optional<File> getNode(const std::string& idString) override;
 
     private:
