@@ -1,5 +1,8 @@
 #include "JsonProtocolConverter.h"
 
+#include <cpprest/asyncrt_utils.h>
+#include <ctime>
+
 namespace yandex_disk {
 
     std::vector<File> JsonProtocolConverter::convertUpdatingRequest(const web::json::value& jsonFile) {
@@ -90,7 +93,7 @@ namespace yandex_disk {
         }
 
         for (auto& file: files)
-            file.date = updateDateValue.as_string();
+            file.date  = stringToUnixTime(updateDateValue.as_string());
 
         return files;
     }
@@ -102,7 +105,7 @@ namespace yandex_disk {
         json[OutputJsonFields::URL] = !file.url.empty()? web::json::value::string(file.url): web::json::value::null();
         json[OutputJsonFields::TYPE] = web::json::value::string(file.type);
         json[OutputJsonFields::PARENT_ID] = !file.parentId.empty()? web::json::value::string(file.parentId): web::json::value::null();
-        json[OutputJsonFields::DATE] = web::json::value::string(file.date);
+        json[OutputJsonFields::DATE] = web::json::value::string(unixTimeToString(file.date));
         json[OutputJsonFields::SIZE] = web::json::value::number(file.size);
 
         size_t counter = 0;
@@ -113,5 +116,23 @@ namespace yandex_disk {
 
         return json;
     }
+
+    uint64_t JsonProtocolConverter::stringToUnixTime(const std::string& stringTime) {
+        return (utility::datetime::from_string(stringTime, utility::datetime::ISO_8601).to_interval() - 116444736000000000) /10000;
+    }
+
+    std::string JsonProtocolConverter::unixTimeToString(uint64_t unixTime) {
+
+        std::string ms = std::to_string(unixTime);
+        ms = ms.substr(ms.size()-3);
+        unixTime /= 1000;
+
+        time_t curr_time = unixTime;
+        struct tm *tmp = gmtime(&curr_time);
+        return {std::to_string(tmp->tm_year+1900) + '-' + std::to_string(tmp->tm_mon) + '-' + std::to_string(tmp->tm_mday) + 'T' + std::to_string(tmp->tm_hour) + ':' + std::to_string(tmp->tm_min) + ':' + std::to_string(tmp->tm_sec) + '.' + ms + 'Z'};
+    }
+
+
+
 
 }

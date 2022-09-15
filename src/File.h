@@ -10,7 +10,7 @@ namespace yandex_disk {
         std::string url;
         std::string type;
         std::string parentId;
-        std::string date;
+        uint64_t date;
         int64_t size;
         std::list<File> children;
 

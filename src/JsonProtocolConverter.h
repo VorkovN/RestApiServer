@@ -12,6 +12,8 @@ namespace yandex_disk {
     public:
         static std::vector<File> convertUpdatingRequest(const web::json::value& jsonFile);
         static web::json::value convertGetRequest(const File& file);
+        static uint64_t stringToUnixTime(const std::string& stringTime);
+        static std::string unixTimeToString(uint64_t unixTime);
 
     private:
         struct InputJsonFields

@@ -109,7 +109,7 @@ namespace yandex_disk {
         if (file.type == File::FILE)
             requestString = std::string(
                     "INSERT INTO " + TABLE_NAME + " (" + DbFields::ID + ", " + DbFields::PARENT_ID + ", " + DbFields::URL + ", " + DbFields::SIZE + ", " + DbFields::DATE + ") "
-                    "VALUES ('" + file.id + "', '" + file.parentId + "', '" + file.url + "', " + std::to_string(file.size) + ", '" + file.date + "') "
+                    "VALUES ('" + file.id + "', '" + file.parentId + "', '" + file.url + "', " + std::to_string(file.size) + ", " + std::to_string(file.date) + ") "
                     "ON CONFLICT (" + DbFields::ID + ") DO UPDATE SET "
                     +DbFields::PARENT_ID + " = excluded." + DbFields::PARENT_ID + ", "
                     +DbFields::URL + " = excluded." + DbFields::URL + ", "
@@ -118,7 +118,7 @@ namespace yandex_disk {
         else
             requestString = std::string(
                     "INSERT INTO " + TABLE_NAME + " (" + DbFields::ID + ", " + DbFields::PARENT_ID + ", " + DbFields::SIZE + ", " + DbFields::DATE + ") "
-                    "VALUES ('" + file.id + "', '" + file.parentId + "', 0, '" + file.date + "') "
+                    "VALUES ('" + file.id + "', '" + file.parentId + "', 0, " + std::to_string(file.date) + ") "
                     "ON CONFLICT (" + DbFields::ID + ") DO UPDATE SET "
                     +DbFields::PARENT_ID + " = excluded." + DbFields::PARENT_ID + ", "
                     +DbFields::SIZE + " = excluded." + DbFields::SIZE + ", "
@@ -154,7 +154,8 @@ namespace yandex_disk {
             return false;
         }
 
-        //Во время поиска дочерних элементов рекурсивно заполним сайз всех папок(хранить сайз папок в БД смысла не нет: обновлять слишком долго)
+        //Хранить сайз папок и поддерживать корректную дату обновлений для каждого элемента в БД смысла не нет: обновлять слишком долго
+        //Во время поиска дочерних элементов рекурсивно заполним сайз и дату всех папок
         for (pqxx::result::const_iterator dbElement = result.begin(); dbElement != result.end(); ++dbElement) {
             File childNodeFile{};
 
@@ -164,6 +165,9 @@ namespace yandex_disk {
                 checkChildNodes(childNodeFile.id, childNodeFile, nontransaction);
 
             file.size += childNodeFile.size;
+
+            if (childNodeFile.size)
+
             file.children.push_back(childNodeFile);
         }
 
@@ -174,7 +178,7 @@ namespace yandex_disk {
         file.id = dbElement.at(DbFields::ID).as<std::string>();
         file.parentId = dbElement.at(DbFields::PARENT_ID).as<std::string>();
         file.size = dbElement.at(DbFields::SIZE).as<int>();
-        file.date = dbElement.at(DbFields::DATE).as<std::string>();
+        file.date = dbElement.at(DbFields::DATE).as<std::uint64_t>();
 
         if (file.size != 0)
             file.url = dbElement.at(DbFields::URL).as<std::string>();
