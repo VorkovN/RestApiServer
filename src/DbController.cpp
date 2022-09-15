@@ -47,7 +47,6 @@ namespace yandex_disk {
             return false;
         }
 
-        checkDb();
         return true;
     }
 
@@ -82,7 +81,6 @@ namespace yandex_disk {
             return false;
         }
 
-        checkDb();
         return true;
     }
 
@@ -114,7 +112,6 @@ namespace yandex_disk {
             return {};
         }
 
-        checkDb();
         return file;
     }
 
@@ -218,17 +215,5 @@ namespace yandex_disk {
         //Нет смысла держать тип файла в БД, когда его можно динамически генерировать по полю size
         file.type = file.size != 0 ? File::FILE : File::FOLDER;
     }
-
-    //todo delete
-    void DbController::checkDb() {
-        pqxx::nontransaction nontransaction(*_dbConnection);
-        auto result  = nontransaction.exec("SELECT * FROM " + TABLE_NAME);
-        for (pqxx::result::const_iterator c = result.begin(); c != result.end(); ++c) {
-            std::cout << DbFields::ID + " = " << c[0].as<std::string>() << std::endl;
-        }
-        nontransaction.commit();
-    }
-
-
 
 }

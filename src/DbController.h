@@ -28,7 +28,6 @@ namespace yandex_disk {
         std::string generateSelectChildrenRequest(const std::string& idString);
         bool checkChildNodes(const std::string& idString, File &file, pqxx::nontransaction& nontransaction);
         void fillFields(File &file, pqxx::result::reference& dbElement);
-        void checkDb();
 
     private:
         std::unique_ptr<pqxx::connection> _dbConnection;
